@@ -152,3 +152,4 @@ TimeSeries_2 <- ggplot(meanReplacement, aes(interval, steps)) +
      ylab("Average number of steps")
 
 TimeSeries_2 + facet_grid(wDay ~ .)
+```
