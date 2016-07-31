@@ -8,18 +8,147 @@ output:
 
 ## Loading and preprocessing the data
 
+```{r}
+library("ggplot2")
+library("dplyr")
+library("timeDate")
 
+unzip("activity.zip")
+
+rawData <- read.csv("activity.csv")
+
+```
 
 ## What is mean total number of steps taken per day?
 
+```{R, fig.height = 4}
 
+rawData <- tbl_df(rawData)
+
+dailyTotal <- rawData %>% group_by(date) %>% summarise_each(funs(sum))
+
+dailyTotal <- dailyTotal[!(is.na(dailyTotal$steps)),]
+Histogram_1 <- ggplot(dailyTotal, aes(x=steps)) + 
+     geom_histogram(color = "darkblue", fill = "lightblue", binwidth = 1000) + 
+     xlab("Total steps per day") + ylab("Count")
+
+Histogram_1
+
+```
+
+#### Mean steps per day:
+```{R}
+
+mean(dailyTotal$steps)
+
+```
+
+#### Median Steps per day:
+```{R}
+
+median(dailyTotal$steps)
+
+```
 
 ## What is the average daily activity pattern?
 
+```{R, fig.height = 4}
+
+meanByInterval <- rawData[,c("steps", "interval")]
+
+meanByInterval <- meanByInterval[!(is.na(meanByInterval$steps)),]
+
+meanByInterval <- meanByInterval %>% group_by(interval) %>% 
+     summarise_each(funs(mean))
+
+TimeSeries_1 <- ggplot(meanByInterval, aes(interval, steps)) + 
+     geom_line(color = "blue", size = 1) + xlab("Interval") + 
+     ylab("Average number of steps")
+
+TimeSeries_1
+
+```
+
+#### On average the 5 minute interval with the maxium number of steps is:
+
+```{R}
+
+meanByInterval$interval[meanByInterval$steps == max(meanByInterval$steps)]
+```
 
 
 ## Imputing missing values
 
+#### The total number of missing values is:
+```{R}
+sum(is.na(rawData$steps))
+```
+
+#### Replace missing values with the mean of the interval.
+```{R}
+
+meanReplacement <- rawData
+
+missingValues <- meanReplacement[is.na(meanReplacement$steps),]
+
+for(i in seq_along(missingValues$steps)){
+     
+     missingValues$steps[i] <- meanByInterval$steps[meanByInterval$interval == 
+                                                  missingValues$interval[i]]
+}
+
+meanReplacement$steps[is.na(meanReplacement$steps)] <- missingValues$steps
+
+```
+
+```{R, fig.height = 4}
+
+dailyTotal2 <- meanReplacement %>% group_by(date) %>% 
+                              summarise_each(funs(sum))
+
+Histogram_2 <- ggplot(dailyTotal2, aes(x=steps)) + 
+     geom_histogram(color = "darkgreen", fill = "lightgreen", binwidth = 1000) + 
+     xlab("Total steps per day (*missing values replace by the mean of the 
+          interval)") + ylab("Count")
+
+Histogram_2
+```
+
+#### Mean steps per day after NA replacement:
+```{R}
+
+mean(dailyTotal2$steps)
+
+```
+
+#### Median Steps per day NA replacement:
+```{R}
+
+median(dailyTotal2$steps)
+
+```
 
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+```{R, fig.height}
+
+meanReplacement[,"wDay"] <- isWeekday(meanReplacement$date, wday = 1:5)
+
+meanReplacement$wDay[meanReplacement$wDay == TRUE] <- "Weekdays"
+
+meanReplacement$wDay[meanReplacement$wDay == FALSE] <- "Weekends"
+
+meanReplacement$wDay = factor(meanReplacement$wDay,
+                              levels = c("Weekdays", "Weekends"), ordered = TRUE)
+
+meanReplacement <- meanReplacement[,c("interval", "steps", "wDay")]
+
+meanReplacement <- meanReplacement %>% group_by(wDay, interval) %>%
+                                             summarise_each(funs(mean),steps)
+
+TimeSeries_2 <- ggplot(meanReplacement, aes(interval, steps)) + 
+     geom_line(color = "blue", size = 1) + xlab("Interval") + 
+     ylab("Average number of steps")
+
+TimeSeries_2 + facet_grid(wDay ~ .)
